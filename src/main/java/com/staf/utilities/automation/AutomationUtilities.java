@@ -6,11 +6,7 @@ import net.sourceforge.htmlunit.corejs.javascript.JavaScriptException;
 import org.apache.log4j.Logger;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.openqa.selenium.WebElement;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.By;
-import org.openqa.selenium.JavascriptExecutor;
-import org.openqa.selenium.NoSuchWindowException;
+import org.openqa.selenium.*;
 
 import java.io.IOException;
 import java.sql.SQLException;

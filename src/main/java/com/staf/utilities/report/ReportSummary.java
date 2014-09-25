@@ -3,8 +3,7 @@ package com.staf.utilities.report;
 import com.staf.service.DriverScript;
 import org.apache.log4j.Logger;
 
-import java.awt.Desktop;
-import java.awt.AWTException;
+import java.awt.*;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;

@@ -314,9 +314,8 @@ public class ReportEvent {
         DriverScript.totalNum = DriverScript.passNum + DriverScript.failNum;
     }
 
-
     public void reportEvent(String description, String expected_Result,
-                            String actual_Result, String status, String workFlowtitle)
+                            String actual_Result, String status)
             throws AWTException, IOException, ClassNotFoundException, SQLException {
 
         // -------------------------        S.NO.      ---------------------------
@@ -344,15 +343,14 @@ public class ReportEvent {
 
         // ----------------------- CREATE SCREENSHOT -----------------------------
         String screenshotName = DriverScript.testCaseName + "_" + currentDateAndTime + "_" + timeSort;
-        String screenshotPath = DriverScript.resFolderScreenShots + "/" + workFlowtitle + "/"
+        String screenshotPath = DriverScript.resFolderScreenShots + "/"
                 + DriverScript.testCaseName + "/" + screenshotName + ".jpg";
 
         if (DriverScript.screenshotType.trim().length() > 0) {
             try {
                 File scrFile;
                 Robot robot = new Robot();
-                if ((new File(DriverScript.resFolderScreenShots + "/" + workFlowtitle + "/"
-                        + DriverScript.testCaseName)).mkdirs()) {
+                if ((new File(DriverScript.resFolderScreenShots + "/" + DriverScript.testCaseName)).mkdirs()) {
                     log.info("Screenshots folder created for the test - " + DriverScript.testCaseName);
                 }
 

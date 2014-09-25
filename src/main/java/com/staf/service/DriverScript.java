@@ -26,6 +26,10 @@ package com.staf.service;
 //TODO: Have some knind of Data provider that gives the info to run in which browser and so on
 //TODO: Know more about TestNG groups
 
+//TODO: How to fail a test case in case of any error. It should log the problem as well
+
+//TODO: GETTERS and SETTERS instead of static variables
+
 import com.staf.utilities.STAFUtilities;
 import com.staf.utilities.automation.AutomationUtilities;
 import com.staf.utilities.errorreporting.ErrorReporter;
@@ -38,14 +42,9 @@ import com.staf.utilities.report.ReportSummary;
 import jxl.Sheet;
 import jxl.Workbook;
 import jxl.WorkbookSettings;
-import jxl.read.biff.BiffException;
-import jxl.write.WriteException;
 import org.apache.log4j.Logger;
 import org.openqa.selenium.Dimension;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
-import org.openqa.selenium.Keys;
-import org.openqa.selenium.NoSuchElementException;
+import org.openqa.selenium.*;
 import org.openqa.selenium.Point;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
@@ -55,24 +54,22 @@ import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.support.ui.Select;
 
-import java.awt.AWTException;
-import java.awt.Toolkit;
+import java.awt.*;
 import java.io.File;
-import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.sql.Connection;
-import java.sql.Statement;
-import java.sql.ResultSet;
 import java.sql.DriverManager;
-import java.sql.SQLException;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 /**
  * Driver Script - Engine of the STAF
@@ -256,7 +253,7 @@ public class DriverScript {
     /**
      * Object Description
      */
-    private String objDesc;
+    public static String objDesc;
 
     /**
      * Object Type
@@ -365,7 +362,7 @@ public class DriverScript {
      * @throws Exception - Exception
      */
     public void driver()
-            throws Exception {
+            throws Exception, NoSuchMethodException, InvocationTargetException {
 
         Properties properties = new Properties();
         properties.setProperty("delayedClose", "0");
@@ -384,6 +381,7 @@ public class DriverScript {
                 + mainWorkflow.getName().split("\\.")[0] + "_Copy.xls");
 
         // ------------------------  E MAIL   ------------------------------
+        //TODO: Bring this from something like maven properties. Consider every test class as report events and at end give a report
         WorkbookSettings wbSettings = new WorkbookSettings();
         wbSettings.setSuppressWarnings(true);
         Workbook wrkBk = Workbook.getWorkbook(new File(directory.getCanonicalPath()
@@ -399,23 +397,23 @@ public class DriverScript {
         String recepientEMailIdCc = sht.getCell(1, 4).getContents();
         String recepientEMailIdBcc = sht.getCell(1, 5).getContents();
 
-        recepientEMailIdTo = recepientEMailIdTo.replaceAll(";", ",");
-        recepientEMailIdTo = recepientEMailIdTo.replaceAll(" ", "");
-        recepientEMailIdTo = recepientEMailIdTo.replaceAll(",", ", ");
+        recepientEMailIdTo = Pattern.compile(";").matcher(recepientEMailIdTo).replaceAll(",");
+        recepientEMailIdTo = Pattern.compile(" ").matcher(recepientEMailIdTo).replaceAll("");
+        recepientEMailIdTo = Pattern.compile(",").matcher(recepientEMailIdTo).replaceAll(", ");
 
-        recepientEMailIdCc = recepientEMailIdCc.replaceAll(";", ",");
-        recepientEMailIdCc = recepientEMailIdCc.replaceAll(" ", "");
-        recepientEMailIdCc = recepientEMailIdCc.replaceAll(",", ", ");
+        recepientEMailIdCc = Pattern.compile(";").matcher(recepientEMailIdCc).replaceAll(",");
+        recepientEMailIdCc = Pattern.compile(" ").matcher(recepientEMailIdCc).replaceAll("");
+        recepientEMailIdCc = Pattern.compile(",").matcher(recepientEMailIdCc).replaceAll(", ");
 
-        recepientEMailIdBcc = recepientEMailIdBcc.replaceAll(";", ",");
-        recepientEMailIdBcc = recepientEMailIdBcc.replaceAll(" ", "");
-        recepientEMailIdBcc = recepientEMailIdBcc.replaceAll(",", ", ");
+        recepientEMailIdBcc = Pattern.compile(";").matcher(recepientEMailIdBcc).replaceAll(",");
+        recepientEMailIdBcc = Pattern.compile(" ").matcher(recepientEMailIdBcc).replaceAll("");
+        recepientEMailIdBcc = Pattern.compile(",").matcher(recepientEMailIdBcc).replaceAll(", ");
 
         wrkBk.close();
         // ---------------------------------------------------------------------
 
         // ----  Set up the connection to access the main work flow sheet ------
-        Class.forName("com.hxtt.sql.excel.ExcelDriver").newInstance();
+        Class.forName("com.hxtt.sql.excel.ExcelDriver").getConstructor().newInstance();
         Connection mainWorkFlowExcelConnection = DriverManager.getConnection("jdbc:excel:/"
                 + mainWorkFlowFolderName + "?WRITE=true", properties);
         Statement mainWorkFlowExcelStatement = mainWorkFlowExcelConnection.createStatement();
@@ -434,21 +432,21 @@ public class DriverScript {
 
             File workFlow = new File(workFlowFolderName);
             // Take a Backup of the Work Flow inside module folder
-            fileHandle.backUpFile(mainWorkFlowFolderName, workFlow.getParent() + "/"
-                    + workFlow.getName().split("\\.")[0] + "_Copy.xlsx");
+            fileHandle.backUpFile(mainWorkFlowFolderName, workFlow.getParent() + '/'
+                    + Pattern.compile("\\.").split(workFlow.getName())[0] + "_Copy.xlsx");
 
             //Create a folder under the title of the Work Flow title
-            if ((new File(DriverScript.resFolderHTMLFile + "/" + workFlowTitle)).mkdirs()) {
+            if ((new File(DriverScript.resFolderHTMLFile + '/' + workFlowTitle)).mkdirs()) {
                 log.info("Automation Test Result folder created at "
-                        + DriverScript.resFolderHTMLFile + "/" + workFlowTitle);
+                        + DriverScript.resFolderHTMLFile + '/' + workFlowTitle);
             }
-            if ((new File(DriverScript.resFolderScreenShots + "/" + workFlowTitle)).mkdirs()) {
+            if ((new File(DriverScript.resFolderScreenShots + '/' + workFlowTitle)).mkdirs()) {
                 log.info("Automation Test Result folder created at "
-                        + DriverScript.resFolderScreenShots + "/" + workFlowTitle);
+                        + DriverScript.resFolderScreenShots + '/' + workFlowTitle);
             }
 
             // ----  SET UP THE CONNECTION TO ACCESS THE RUN MANAGER EXCEL SHEET -----
-            Class.forName("com.hxtt.sql.excel.ExcelDriver").newInstance();
+            Class.forName("com.hxtt.sql.excel.ExcelDriver").getConstructor().newInstance();
             Connection workFlowExcelRunManagerConnection = DriverManager.getConnection("jdbc:excel:/" + workFlowFolderName
                     + "?WRITE=true", properties);
             Statement workFlowExcelRunManagerStatement = workFlowExcelRunManagerConnection.createStatement();
@@ -579,12 +577,12 @@ public class DriverScript {
                 driver.manage().deleteAllCookies();
                 log.info("Cookies deleted");
 
-                driver.manage().timeouts().implicitlyWait(20, TimeUnit.SECONDS);
-                driver.manage().timeouts().pageLoadTimeout(60, TimeUnit.SECONDS);
+                driver.manage().timeouts().implicitlyWait(20L, TimeUnit.SECONDS);
+                driver.manage().timeouts().pageLoadTimeout(60L, TimeUnit.SECONDS);
 
                 // -----------------------------  MAIN Sheet QUERY  ---------------------------------------
                 String mainSelectQuery = "SELECT * FROM Main WHERE Test_Case_Name = '"
-                        + testCaseName + "' AND Sequence = '" + testCaseSequenceNo + "'";
+                        + testCaseName + "' AND Sequence = '" + testCaseSequenceNo + '\'';
                 log.info(mainSelectQuery);
 
                 ResultSet mainSelectQueryResultSet = workFlowExcelMainStatement.executeQuery(mainSelectQuery);
@@ -597,7 +595,7 @@ public class DriverScript {
 
                     // --------------------  DATA SHEET QUERY  ---------------------------------------------
                     String dateSheetSelectQuery = "SELECT * FROM " + dataSheetName + " WHERE Test_Case_Name = '"
-                            + testCaseName + "' AND SequenceNumber = '" + testCaseDataSequenceNo + "'";
+                            + testCaseName + "' AND SequenceNumber = '" + testCaseDataSequenceNo + '\'';
                     log.info(dateSheetSelectQuery);
                     dataSelectQueryResultSet = workFlowExcelDataSheetStatement.executeQuery(dateSheetSelectQuery);
 
@@ -723,7 +721,7 @@ public class DriverScript {
                             + testCasestatus + "', Elapsed_Time = '"
                             + testCaseElapsedTime + "', Execution_Start_Date_Time = '"
                             + testCaseStartTime + "', Execution_End_Date_Time = '" + testCaseEndTime
-                            + "' WHERE Test_Case_Name = '" + testCaseName + "'";
+                            + "' WHERE Test_Case_Name = '" + testCaseName + '\'';
                     log.info(updateMainSheetQuery);
                     workFlowExcelUpdateMainStatement.execute(updateMainSheetQuery);
                     workFlowExcelUpdateMainConnection.commit();
@@ -759,7 +757,7 @@ public class DriverScript {
                 String textExecResultFolderPath = resFolderHTMLFile;
                 String zipFilePath = directory.getCanonicalPath() + "/Results/" + testExecResultFolderName + ".zip";
 
-                if (!recepientEMailIdTo.equals("")) {
+                if (!recepientEMailIdTo.isEmpty()) {
                     if (recepientEMailIdTo.contains("@")) {
                         fileHandle.zipThisFolder(textExecResultFolderPath, zipFilePath);
 
@@ -803,26 +801,23 @@ public class DriverScript {
     /**
      * Execute based on the option mentioned in the Instruction Type column of the Work flow sheet
      *
-     * @throws SQLException              - SQLException
-     * @throws IOException               - IO Exception
-     * @throws BiffException             - Biff Exception
-     * @throws WriteException            - Write Exception
-     * @throws ClassNotFoundException    - Class Not Found Exception
-     * @throws AWTException              - AWT Exception
-     * @throws InterruptedException      - Interrupted Exception
-     * @throws InstantiationException    - Instantiation Exception
-     * @throws IllegalAccessException    - Illegal Access Exception
-     * @throws NoSuchMethodException     - No Such Method Exception
-     * @throws NoSuchFieldException      - No Such Field Exception
-     * @throws SecurityException         - Security Exception
-     * @throws IllegalArgumentException  - Illegal Argument Exception
-     * @throws InvocationTargetException - Invocation Target Exception
+     * @throws java.sql.SQLException                       - SQLException
+     * @throws java.io.IOException                         - IO Exception
+     * @throws jxl.read.biff.BiffException                 - Biff Exception
+     * @throws jxl.write.WriteException                    - Write Exception
+     * @throws ClassNotFoundException                      - Class Not Found Exception
+     * @throws java.awt.AWTException                       - AWT Exception
+     * @throws InterruptedException                        - Interrupted Exception
+     * @throws InstantiationException                      - Instantiation Exception
+     * @throws IllegalAccessException                      - Illegal Access Exception
+     * @throws NoSuchMethodException                       - No Such Method Exception
+     * @throws NoSuchFieldException                        - No Such Field Exception
+     * @throws SecurityException                           - Security Exception
+     * @throws IllegalArgumentException                    - Illegal Argument Exception
+     * @throws java.lang.reflect.InvocationTargetException - Invocation Target Exception
      */
     public void executeStmnt()
-            throws InterruptedException, InstantiationException,
-            IllegalAccessException, ClassNotFoundException, NoSuchMethodException,
-            SecurityException, IllegalArgumentException, InvocationTargetException, AWTException,
-            IOException, SQLException, BiffException, WriteException, NoSuchFieldException {
+            throws Exception {
 
         instrType = instrType.trim().toUpperCase();
 
@@ -948,9 +943,9 @@ public class DriverScript {
                 String className = screenObjClassName;
 
                 Class<?> cls = Class.forName(className);
-                Object obj = cls.newInstance();
+                Object obj = cls.getConstructor().newInstance();
 
-                String[] inputs = data.split(",");
+                String[] inputs = Pattern.compile(",").split(data);
                 for (int i = 0; i < inputs.length; i++) {
                     inputs[i] = inputs[i].trim();
                 }
@@ -977,7 +972,7 @@ public class DriverScript {
                             if (output != null) {
                                 String updateDataSheetQuery = "update  " + dataSheetName
                                         + " set " + dataSheetOutputColumn + " = '" + output
-                                        + "' where Test_Case_Name = '" + testCaseName + "'";
+                                        + "' where Test_Case_Name = '" + testCaseName + '\'';
                                 log.info(updateDataSheetQuery);
                                 log.info("The return value - " + output + " from " + functionName
                                         + " (" + className + ") " + " loaded in to " + dataSheetOutputColumn
@@ -1001,33 +996,31 @@ public class DriverScript {
         } else if (instrType.equals("WAIT")) {
             log.info("Waiting for " + data + " seconds");
             // Wait for the Value given
-            Thread.sleep((Integer.parseInt(data)) * 1000);
+            Thread.sleep((long) ((Integer.parseInt(data)) * 1000));
         }
     }
 
     /**
      * Performs the action on appropriate UI based on the value passed in the Object Type.
      *
-     * @throws SQLException             - SQLException
-     * @throws IOException              - IO Exception
-     * @throws BiffException            - Biff Exception
-     * @throws WriteException           - Write Exception
-     * @throws ClassNotFoundException   - Class Not Found Exception
-     * @throws SecurityException        - Security Exception
-     * @throws IllegalArgumentException - Illegal Argument Exception
-     * @throws IllegalAccessException   - Illegal Access Exception
-     * @throws AWTException             - AWT Exception
-     * @throws InstantiationException   - Instantiation Exception
-     * @throws NoSuchFieldException     - No Such Field Exception
+     * @throws java.sql.SQLException       - SQLException
+     * @throws java.io.IOException         - IO Exception
+     * @throws jxl.read.biff.BiffException - Biff Exception
+     * @throws jxl.write.WriteException    - Write Exception
+     * @throws ClassNotFoundException      - Class Not Found Exception
+     * @throws SecurityException           - Security Exception
+     * @throws IllegalArgumentException    - Illegal Argument Exception
+     * @throws IllegalAccessException      - Illegal Access Exception
+     * @throws java.awt.AWTException       - AWT Exception
+     * @throws InstantiationException      - Instantiation Exception
+     * @throws NoSuchFieldException        - No Such Field Exception
      */
     public void performAction()
-            throws ClassNotFoundException, AWTException, IOException,
-            SQLException, BiffException, WriteException, IllegalArgumentException,
-            IllegalAccessException, InstantiationException, NoSuchFieldException, SecurityException {
+            throws Exception {
 
         objType = objType.toUpperCase();
-        WebElement webElmnt = null;
-        Select slctWebElmnt;
+        WebElement webElement = null;
+        Select slctwebElement;
         Field field;
         Class<?> screenObjClass;
         String errorDesc = "";
@@ -1039,8 +1032,8 @@ public class DriverScript {
                 screenObjClass = Class.forName(screenObjClassName);
                 field = screenObjClass.getDeclaredField(objReference);
                 field.setAccessible(true);
-                webElmnt = null;
-                webElmnt = (WebElement) field.get(screenObjClass.newInstance());
+                webElement = null;
+                webElement = (WebElement) field.get(screenObjClass.getConstructor().newInstance());
             }
         } catch (Exception e) {
             log.info(e.getMessage());
@@ -1048,11 +1041,11 @@ public class DriverScript {
             testCasestatus = "Fail";
             log.info("Test Case : " + testCaseName + " - failed");
         }
-        boolean objFound = false;
+        boolean m_objFound = false;
 
         if (objType.equals("OPEN_BROWSER")) {
             try {
-                if (!data.equals("")) {
+                if (!data.isEmpty()) {
                     driver.get(data);
                     automationUtilities.windowsOpened.add(driver.getWindowHandle());
                     //--------------------- Maximize the Window ---------------------------------------------------
@@ -1063,9 +1056,9 @@ public class DriverScript {
                     // --------------------------------------------------------------------------------------------
 
                     testCasestatus = "Pass";
-                    Thread.sleep(2000);
+                    Thread.sleep(2000L);
                     reportEvent.reportEvent("Enter the URL in to the Browser Window"
-                            , "URL should be enterd successfully", "URL - " + data + " - is used", "Pass", workFlowTitle);
+                            , "URL should be enterd successfully", "URL - " + data + " - is used", "Pass");
                     log.info("Opened new window");
                 } else {
                     log.warn("No url is entered in the Data column of the Business/functional flow");
@@ -1078,22 +1071,22 @@ public class DriverScript {
                 explicitErrorMsg = "Problem in opening the browser";
                 reportEvent.reportEvent("Enter the URL in to the Browser Window",
                         "URL should be enterd successfully",
-                        "Unable to access the requested URL  :  " + data + " - Please open the Error Sheet " +
+                        "Unable to access the requested URL  :  " + data + " - Please open the log " +
                                 "to know more about the cause for Test Case failure",
-                        "Fail", workFlowTitle);
+                        "Fail");
                 errorReporter.errorReporting();
             }
 
         } else if (objType.equals("OPEN_NEW_WINDOW")) {
             try {
-                if (!data.equals("")) {
+                if (!data.isEmpty()) {
                     automationUtilities.openTab(data);
                     automationUtilities.switchTotheWindowOpenedNow();
 
                     testCasestatus = "Pass";
-                    Thread.sleep(2000);
+                    Thread.sleep(2000L);
                     reportEvent.reportEvent("Enter the URL in a New Tab", "URL should be enterd successfully"
-                            , "URL - " + data + " - is opened in a New Tab", "Pass", workFlowTitle);
+                            , "URL - " + data + " - is opened in a New Tab", "Pass");
                     log.info("Opened new tab");
                 } else {
                     log.warn("No url is entered in the Data column of the Business/functional flow");
@@ -1104,23 +1097,23 @@ public class DriverScript {
                 testCasestatus = "Fail";
                 reportEvent.reportEvent("Enter the URL in a New Tab",
                         "URL should be enterd successfully",
-                        "Unable to access the requested URL  :  " + data + " - Please open the Error Sheet " +
+                        "Unable to access the requested URL  :  " + data + " - Please open the log " +
                                 "to know more about the cause for Test Case failure",
-                        "Fail", workFlowTitle);
+                        "Fail");
                 errorReporter.errorReporting();
             }
 
         } else if (objType.equals("CAPTURE_CURRENT_WINDOW_TITLE_IN_TO_DATA_SHEET")) {
             String currentWindowTitle = driver.getTitle();
-            String updateDataSheetQueryCaptureWndwTitle = "UPDATE " + dataSheetName + " " +
+            String updateDataSheetQueryCaptureWndwTitle = "UPDATE " + dataSheetName + ' ' +
                     "SET " + data + " = '" + currentWindowTitle
-                    + "' WHERE Test_Case_Name = '" + testCaseName + "'";
+                    + "' WHERE Test_Case_Name = '" + testCaseName + '\'';
             log.info(updateDataSheetQueryCaptureWndwTitle);
             workFlowExcelUpdateDataStatement.executeUpdate(updateDataSheetQueryCaptureWndwTitle);
             workFlowExcelUpdateDataConnection.commit();
             log.info("Updated successfully");
 
-            if (!data.equals("")) {
+            if (!data.isEmpty()) {
                 testCasestatus = "Pass";
             } else {
                 testCasestatus = "Fail";
@@ -1129,15 +1122,15 @@ public class DriverScript {
             }
 
         } else if (objType.equals("CAPTURE_CURRENT_WINDOW_HANDLE_IN_TO_DATA_SHEET")) {
-            String updateDataSheetQueryCaptureWndwHndl = "UPDATE " + dataSheetName + " " +
+            String updateDataSheetQueryCaptureWndwHndl = "UPDATE " + dataSheetName + ' ' +
                     "SET " + data + " = '" + driver.getWindowHandle() +
-                    "' WHERE Test_Case_Name = '" + testCaseName + "'";
+                    "' WHERE Test_Case_Name = '" + testCaseName + '\'';
             log.info(updateDataSheetQueryCaptureWndwHndl);
             workFlowExcelUpdateDataStatement.executeUpdate(updateDataSheetQueryCaptureWndwHndl);
             workFlowExcelUpdateDataConnection.commit();
             log.info("Updated successfully");
 
-            if (!data.equals("")) {
+            if (!data.isEmpty()) {
                 testCasestatus = "Pass";
             } else {
                 testCasestatus = "Fail";
@@ -1180,17 +1173,16 @@ public class DriverScript {
             driver.navigate().to(url);
 
         } else if (objType.equals("SWITCH_TO_PREVIOUS_WINDOW")) {
-            if (!automationUtilities.previousWindowHandle.equals("")) {
+            if (!automationUtilities.previousWindowHandle.isEmpty()) {
                 automationUtilities.switchToWindowHandle(automationUtilities.previousWindowHandle);
             }
             //updateCurrentAndPreviousWindowHandle();
 
         } else if (objType.equals("MOVE_FOCUS_TO_ELEMENT")) {
             try {
-
-                assert webElmnt != null;
-                if (webElmnt.isEnabled()) {
-                    new Actions(driver).moveToElement(webElmnt);
+                assert webElement != null;
+                if (webElement.isEnabled()) {
+                    new Actions(driver).moveToElement(webElement);
                 }
             } catch (Exception e) {
                 implicitErrorMsg = e.getMessage();
@@ -1201,51 +1193,51 @@ public class DriverScript {
         } else if (objType.equals("LINK")) {
             try {
 
-                assert webElmnt != null;
-                if (webElmnt.isEnabled()) {
-                    webElmnt.click();
-                    objFound = true;
+                assert webElement != null;
+                if (webElement.isEnabled()) {
+                    webElement.click();
+                    m_objFound = true;
                 }
             } catch (NoSuchElementException e) {
                 errorDesc = e.getMessage();
                 e.printStackTrace();
-                objFound = false;
+                m_objFound = false;
             }
 
-            if (objFound) {
+            if (m_objFound) {
                 testCasestatus = "Pass";
-                if (!objDesc.equals("")) {
+                if (!objDesc.isEmpty()) {
                     reportEvent.reportEvent("Click on the Link : " + objDesc,
                             "Link should be clicked successfully",
                             "Link - " + objDesc + " (" + objReference + " from " + screenObjClassName + ") "
                                     + " is clicked successfully",
-                            "Pass", workFlowTitle);
+                            "Pass");
                 } else {
                     reportEvent.reportEvent("Click on the appopriate Link",
                             "Link should be clicked successfully",
                             "Link - " + objReference + " from " + screenObjClassName + " - is clicked successfully",
-                            "Pass", workFlowTitle);
+                            "Pass");
                 }
             } else {
                 testCasestatus = "Fail";
                 implicitErrorMsg = errorDesc;
                 explicitErrorMsg = "Unable to access the Link provided" + "  -  " + objReference
                         + " from " + screenObjClassName;
-                if (!objDesc.equals("")) {
+                if (!objDesc.isEmpty()) {
                     reportEvent.reportEvent("Click on the Link : " + objDesc,
                             "Link should be clicked successfully",
                             "Link - " + objDesc + " (" + objReference + " from " + screenObjClassName + ") "
                                     + " is not clicked"
-                                    + " - Please open the Error Sheet " +
+                                    + " - Please open the log " +
                                     "to know more about the cause for Test Case failure",
-                            "Fail", workFlowTitle);
+                            "Fail");
                 } else {
                     reportEvent.reportEvent("Click on the appopriate Link",
                             "Link should be clicked successfully",
                             "Link - " + objReference + " from " + screenObjClassName + " - is not clicked"
-                                    + " - Please open the Error Sheet " +
+                                    + " - Please open the log " +
                                     "to know more about the cause for Test Case failure",
-                            "Fail", workFlowTitle);
+                            "Fail");
                 }
                 errorReporter.errorReporting();
             }
@@ -1253,80 +1245,79 @@ public class DriverScript {
         } else if (objType.equals("PARTIAL_LINK")) {
             try {
 
-                assert webElmnt != null;
-                if (webElmnt.isEnabled()) {
-                    webElmnt.click();
-                    objFound = true;
+                assert webElement != null;
+                if (webElement.isEnabled()) {
+                    webElement.click();
+                    m_objFound = true;
                 }
             } catch (NoSuchElementException e) {
                 errorDesc = e.getMessage();
                 e.printStackTrace();
-                objFound = false;
+                m_objFound = false;
             }
-            if (objFound) {
+            if (m_objFound) {
                 testCasestatus = "Pass";
-                if (!objDesc.equals("")) {
+                if (!objDesc.isEmpty()) {
                     reportEvent.reportEvent("Click on the Link : " + objDesc,
                             "Link should be clicked successfully",
                             "Link - " + objDesc + " (" + objReference + " from " + screenObjClassName + ") "
                                     + " is clicked successfully",
-                            "Pass", workFlowTitle);
+                            "Pass");
                 } else {
                     reportEvent.reportEvent("Click on the appopriate Link", "Link should be clicked successfully"
                             , "Link - " + objReference + " from " + screenObjClassName + " - is clicked successfully",
-                            "Pass", workFlowTitle);
+                            "Pass");
                 }
             } else {
                 testCasestatus = "Fail";
                 implicitErrorMsg = errorDesc;
                 explicitErrorMsg = "Unable to access the Link provided" + "  -  " + objReference
                         + " from " + screenObjClassName;
-                if (!objDesc.equals("")) {
+                if (!objDesc.isEmpty()) {
                     reportEvent.reportEvent("Click on the Link : " + objDesc,
                             "Link should be clicked successfully",
                             "Link - " + objDesc + " (" + objReference + " from " + screenObjClassName + ") "
                                     + " is not clicked"
-                                    + " - Please open the Error Sheet " +
+                                    + " - Please open the log " +
                                     "to know more about the cause for Test Case failure",
-                            "Fail", workFlowTitle);
+                            "Fail");
                 } else {
                     reportEvent.reportEvent("Click on the appopriate Link",
                             "Link should be clicked successfully",
                             "Link - " + objReference + " from " + screenObjClassName + " - is not clicked"
-                                    + " - Please open the Error Sheet " +
+                                    + " - Please open the log " +
                                     "to know more about the cause for Test Case failure",
-                            "Fail", workFlowTitle);
+                            "Fail");
                 }
                 errorReporter.errorReporting();
             }
 
         } else if (objType.equals("TEXT")) {
             try {
-
-                assert webElmnt != null;
-                if (webElmnt.isEnabled()) {
-                    objFound = true;
-                    webElmnt.clear();
-                    webElmnt.sendKeys(data);
+                assert webElement != null;
+                if (webElement.isEnabled()) {
+                    m_objFound = true;
+                    webElement.clear();
+                    webElement.sendKeys(data);
                 }
             } catch (Exception e) {
                 errorDesc = e.getMessage();
                 e.printStackTrace();
-                objFound = false;
+                m_objFound = false;
             }
 
-            if (objFound) {
+            if (m_objFound) {
                 testCasestatus = "Pass";
-                if (!objDesc.equals("")) {
+                if (!objDesc.isEmpty()) {
                     reportEvent.reportEvent("Enter a valid value in to the Text Field : " + objDesc,
                             "Value should be entered successfully",
-                            "" + data + " is entered in to the Text Field - " + objDesc,
-                            "Pass", workFlowTitle);
+                            data + " is entered in to the Text Field - " + objDesc,
+                            "Pass");
                 } else {
                     reportEvent.reportEvent("Enter a valid value in to the Text Field",
                             "Appropriate Value should be entered successfully",
-                            "" + data + " is entered in to the Text Field",
-                            "Pass", workFlowTitle);
+                            data + " is entered in to the Text Field",
+                            "Pass");
                 }
             } else {
                 testCasestatus = "Fail";
@@ -1335,20 +1326,20 @@ public class DriverScript {
                 explicitErrorMsg = "Unable to access the Text field provided"
                         + "  -  " + objReference + " from " + screenObjClassName;
 
-                if (!objDesc.equals("")) {
+                if (!objDesc.isEmpty()) {
                     reportEvent.reportEvent("Enter a valid value in to the Text Field : " + objDesc,
                             "Value should be entered successfully",
                             "Text Field " + objDesc + " is neither enabled nor displayed"
-                                    + " - Please open the Error Sheet " +
+                                    + " - Please open the log " +
                                     "to know more about the cause for Test Case failure",
-                            "Fail", workFlowTitle);
+                            "Fail");
                 } else {
                     reportEvent.reportEvent("Enter a valid value in to the Text Field",
                             "Appropriate Value should be entered successfully",
                             "Text Field is neither enabled nor displayed"
-                                    + " - Please open the Error Sheet " +
+                                    + " - Please open the log " +
                                     "to know more about the cause for Test Case failure",
-                            "Fail", workFlowTitle);
+                            "Fail");
                 }
 
                 errorReporter.errorReporting();
@@ -1356,30 +1347,29 @@ public class DriverScript {
 
         } else if (objType.equals("RADIO")) {
             try {
-
-                assert webElmnt != null;
-                if (webElmnt.isEnabled()) {
-                    webElmnt.click();
-                    objFound = true;
+                assert webElement != null;
+                if (webElement.isEnabled()) {
+                    webElement.click();
+                    m_objFound = true;
                 }
             } catch (Exception e) {
                 errorDesc = e.getMessage();
                 e.printStackTrace();
-                objFound = false;
+                m_objFound = false;
             }
 
-            if (objFound) {
+            if (m_objFound) {
                 testCasestatus = "Pass";
-                if (!objDesc.equals("")) {
+                if (!objDesc.isEmpty()) {
                     reportEvent.reportEvent("Click on the Radio Button : " + objDesc,
                             "Radio Button should be clicked successfully",
-                            "" + objDesc + " - Radio Button clicked successfully",
-                            "Pass", workFlowTitle);
+                            objDesc + " - Radio Button clicked successfully",
+                            "Pass");
                 } else {
                     reportEvent.reportEvent("Click on the Radio Button"
                             , "Radio Button should be clicked successfully"
                             , "Button clicked successfully"
-                            , "Pass", workFlowTitle);
+                            , "Pass");
                 }
             } else {
                 testCasestatus = "Fail";
@@ -1388,22 +1378,22 @@ public class DriverScript {
                 explicitErrorMsg = "Unable to access the Radio button provided"
                         + "  -  " + objReference + " from " + screenObjClassName;
 
-                if (!objDesc.equals("")) {
+                if (!objDesc.isEmpty()) {
                     reportEvent.reportEvent("Click on the Radio Button : " + objDesc,
                             "Radio Button should be clicked successfully",
-                            "" + objDesc + " - Radio Button not clicked."
+                            objDesc + " - Radio Button not clicked."
                                     + "Reason: Radio Button not displayed / enabled"
-                                    + " - Please open the Error Sheet " +
-                                    "to know more about the cause for Test Case failure",
-                            "Fail", workFlowTitle);
+                                    + " - Please open the log "
+                                    + "to know more about the cause for Test Case failure",
+                            "Fail");
                 } else {
                     reportEvent.reportEvent("Click on the Radio Button",
                             "Radio Button should be clicked successfully",
                             "Radio Button not clicked."
                                     + "Reason: Radio Button not displayed / enabled"
-                                    + " - Please open the Error Sheet " +
+                                    + " - Please open the log " +
                                     "to know more about the cause for Test Case failure",
-                            "Fail", workFlowTitle);
+                            "Fail");
                 }
 
                 errorReporter.errorReporting();
@@ -1412,31 +1402,31 @@ public class DriverScript {
         } else if (objType.equals("CHECKBOX_SELECT")) {
             try {
 
-                assert webElmnt != null;
-                if (webElmnt.isEnabled()) {
-                    if (webElmnt.getAttribute("checked") == null) {
-                        webElmnt.click();
+                assert webElement != null;
+                if (webElement.isEnabled()) {
+                    if (webElement.getAttribute("checked") == null) {
+                        webElement.click();
                     }
-                    objFound = true;
+                    m_objFound = true;
                 }
             } catch (Exception e) {
                 errorDesc = e.getMessage();
                 e.printStackTrace();
-                objFound = false;
+                m_objFound = false;
             }
 
-            if (objFound) {
+            if (m_objFound) {
                 testCasestatus = "Pass";
-                if (!objDesc.equals("")) {
+                if (!objDesc.isEmpty()) {
                     reportEvent.reportEvent("Select the Check Box : " + objDesc
                             , "Check Box should be selected successfully"
                             , "Check Box - " + objDesc + " - is selected"
-                            , "Pass", workFlowTitle);
+                            , "Pass");
                 } else {
                     reportEvent.reportEvent("Select the Check Box"
                             , "Appropriate Check Box should be selected successfully"
                             , "Check Box is selected"
-                            , "Pass", workFlowTitle);
+                            , "Pass");
                 }
             } else {
                 testCasestatus = "Fail";
@@ -1445,20 +1435,20 @@ public class DriverScript {
                 explicitErrorMsg = "Unable to access the Check Box entered " + "  -  " + objReference
                         + " from " + screenObjClassName;
 
-                if (!objDesc.equals("")) {
+                if (!objDesc.isEmpty()) {
                     reportEvent.reportEvent("Select the Check Box : " + objDesc,
                             "Check Box should be selected successfully",
                             "Check Box " + objDesc + " is neither enabled nor displayed"
-                                    + " - Please open the Error Sheet " +
+                                    + " - Please open the log " +
                                     "to know more about the cause for Test Case failure",
-                            "Fail", workFlowTitle);
+                            "Fail");
                 } else {
                     reportEvent.reportEvent("Select the Check Box",
                             "Appropriate Check Box should be selected successfully",
                             "Check Box is neither enabled nor displayed"
-                                    + " - Please open the Error Sheet " +
+                                    + " - Please open the log " +
                                     "to know more about the cause for Test Case failure",
-                            "Fail", workFlowTitle);
+                            "Fail");
                 }
 
                 errorReporter.errorReporting();
@@ -1467,31 +1457,31 @@ public class DriverScript {
         } else if (objType.equals("CHECKBOX_UNSELECT")) {
             try {
 
-                assert webElmnt != null;
-                if (webElmnt.isEnabled()) {
-                    if (webElmnt.getAttribute("checked") != null) {
-                        webElmnt.click();
+                assert webElement != null;
+                if (webElement.isEnabled()) {
+                    if (webElement.getAttribute("checked") != null) {
+                        webElement.click();
                     }
-                    objFound = true;
+                    m_objFound = true;
                 }
             } catch (Exception e) {
                 errorDesc = e.getMessage();
                 e.printStackTrace();
-                objFound = false;
+                m_objFound = false;
             }
 
-            if (objFound) {
+            if (m_objFound) {
                 testCasestatus = "Pass";
-                if (!objDesc.equals("")) {
+                if (!objDesc.isEmpty()) {
                     reportEvent.reportEvent("Select the Check Box : " + objDesc,
                             "Check Box should be selected successfully",
                             "Check Box - " + objDesc + " - is selected",
-                            "Pass", workFlowTitle);
+                            "Pass");
                 } else {
                     reportEvent.reportEvent("Select the Check Box",
                             "Appropriate Check Box should be selected successfully",
                             "Check Box is selected",
-                            "Pass", workFlowTitle);
+                            "Pass");
                 }
             } else {
                 testCasestatus = "Fail";
@@ -1500,20 +1490,20 @@ public class DriverScript {
                 explicitErrorMsg = "Unable to access the Check Box entered " + "  -  " + objReference
                         + " from " + screenObjClassName;
 
-                if (!objDesc.equals("")) {
+                if (!objDesc.isEmpty()) {
                     reportEvent.reportEvent("Select the Check Box : " + objDesc,
                             "Check Box should be selected successfully",
                             "Check Box " + objDesc + " is neither enabled nor displayed"
-                                    + " - Please open the Error Sheet " +
+                                    + " - Please open the log " +
                                     "to know more about the cause for Test Case failure",
-                            "Fail", workFlowTitle);
+                            "Fail");
                 } else {
                     reportEvent.reportEvent("Select the Check Box",
                             "Appropriate Check Box should be selected successfully",
                             "Check Box is neither enabled nor displayed"
-                                    + " - Please open the Error Sheet " +
+                                    + " - Please open the log " +
                                     "to know more about the cause for Test Case failure",
-                            "Fail", workFlowTitle);
+                            "Fail");
                 }
 
                 errorReporter.errorReporting();
@@ -1522,31 +1512,31 @@ public class DriverScript {
         } else if (objType.equals("SELECT_BY_VALUE")) {
             try {
 
-                assert webElmnt != null;
-                if (webElmnt.isEnabled()) {
-                    slctWebElmnt = new Select(webElmnt);
-                    slctWebElmnt.selectByValue(data);
-                    webElmnt.sendKeys(Keys.ENTER);
-                    objFound = true;
+                assert webElement != null;
+                if (webElement.isEnabled()) {
+                    slctwebElement = new Select(webElement);
+                    slctwebElement.selectByValue(data);
+                    webElement.sendKeys(Keys.ENTER);
+                    m_objFound = true;
                 }
             } catch (Exception e) {
                 errorDesc = e.getMessage();
                 e.printStackTrace();
-                objFound = false;
+                m_objFound = false;
             }
 
-            if (objFound) {
+            if (m_objFound) {
                 testCasestatus = "Pass";
-                if (!objDesc.equals("")) {
+                if (!objDesc.isEmpty()) {
                     reportEvent.reportEvent("Select a value from the Drop Down : " + objDesc,
                             "Value should be selected successfully",
-                            "" + data + " is selected in to the Drop Down - " + objDesc,
-                            "Pass", workFlowTitle);
+                            data + " is selected in to the Drop Down - " + objDesc,
+                            "Pass");
                 } else {
                     reportEvent.reportEvent("Select a value from the Drop Down",
                             "Appropriate Value should be selected successfully",
-                            "" + data + " is selected in to the Drop Down",
-                            "Pass", workFlowTitle);
+                            data + " is selected in to the Drop Down",
+                            "Pass");
                 }
             } else {
                 testCasestatus = "Fail";
@@ -1554,20 +1544,20 @@ public class DriverScript {
                 implicitErrorMsg = errorDesc;
                 explicitErrorMsg = "Unable to access the Drop Down entered " + "  -  " + objReference;
 
-                if (!objDesc.equals("")) {
+                if (!objDesc.isEmpty()) {
                     reportEvent.reportEvent("Select a value from the Drop Down : " + objDesc,
                             "Value should be selected successfully",
                             "Drop Down " + objDesc + " is neither enabled nor displayed" +
                                     " - Please open the Error Sheet" +
                                     "to know more about the cause for Test Case failure",
-                            "Fail", workFlowTitle);
+                            "Fail");
                 } else {
                     reportEvent.reportEvent("Select a value from the Drop Down",
                             "Appropriate Value should be selected successfully",
                             "Drop Down is neither enabled nor displayed"
-                                    + " - Please open the Error Sheet " +
+                                    + " - Please open the log " +
                                     "to know more about the cause for Test Case failure",
-                            "Fail", workFlowTitle);
+                            "Fail");
                 }
 
                 errorReporter.errorReporting();
@@ -1577,32 +1567,32 @@ public class DriverScript {
             int valueToInt = Integer.parseInt(data);
             try {
 
-                assert webElmnt != null;
-                if (webElmnt.isEnabled()) {
-                    slctWebElmnt = new Select(webElmnt);
-                    slctWebElmnt.selectByIndex(valueToInt);
-                    webElmnt.sendKeys(Keys.ENTER);
-                    objFound = true;
+                assert webElement != null;
+                if (webElement.isEnabled()) {
+                    slctwebElement = new Select(webElement);
+                    slctwebElement.selectByIndex(valueToInt);
+                    webElement.sendKeys(Keys.ENTER);
+                    m_objFound = true;
                 }
 
             } catch (Exception e) {
                 errorDesc = e.getMessage();
                 e.printStackTrace();
-                objFound = false;
+                m_objFound = false;
             }
 
-            if (objFound) {
+            if (m_objFound) {
                 testCasestatus = "Pass";
-                if (!objDesc.equals("")) {
+                if (!objDesc.isEmpty()) {
                     reportEvent.reportEvent("Select a value from the Drop Down : " + objDesc,
                             "Value should be selected successfully",
-                            "" + data + " is selected in to the Drop Down - " + objDesc,
-                            "Pass", workFlowTitle);
+                            data + " is selected in to the Drop Down - " + objDesc,
+                            "Pass");
                 } else {
                     reportEvent.reportEvent("Select a value from the Drop Down",
                             "Appropriate Value should be selected successfully",
-                            "" + data + " is selected in to the Drop Down",
-                            "Pass", workFlowTitle);
+                            data + " is selected in to the Drop Down",
+                            "Pass");
                 }
             } else {
                 testCasestatus = "Fail";
@@ -1610,20 +1600,20 @@ public class DriverScript {
                 implicitErrorMsg = errorDesc;
                 explicitErrorMsg = "Unable to access the Drop Down entered " + "  -  " + objReference;
 
-                if (!objDesc.equals("")) {
+                if (!objDesc.isEmpty()) {
                     reportEvent.reportEvent("Select a value from the Drop Down : " + objDesc,
                             "Value should be selected successfully",
                             "Drop Down " + objDesc + " is neither enabled nor displayed"
-                                    + " - Please open the Error Sheet " +
+                                    + " - Please open the log " +
                                     "to know more about the cause for Test Case failure",
-                            "Fail", workFlowTitle);
+                            "Fail");
                 } else {
                     reportEvent.reportEvent("Select a value from the Drop Down",
                             "Appropriate Value should be selected successfully",
                             "Drop Down is neither enabled nor displayed"
-                                    + " - Please open the Error Sheet " +
+                                    + " - Please open the log " +
                                     "to know more about the cause for Test Case failure",
-                            "Fail", workFlowTitle);
+                            "Fail");
                 }
 
                 errorReporter.errorReporting();
@@ -1631,30 +1621,29 @@ public class DriverScript {
 
         } else if (objType.equals("BUTTON")) {
             try {
-
-                assert webElmnt != null;
-                if (webElmnt.isEnabled()) {
-                    webElmnt.click();
-                    objFound = true;
+                assert webElement != null;
+                if (webElement.isEnabled()) {
+                    webElement.click();
+                    m_objFound = true;
                 }
             } catch (Exception e) {
                 errorDesc = e.getMessage();
                 e.printStackTrace();
-                objFound = false;
+                m_objFound = false;
             }
 
-            if (objFound) {
+            if (m_objFound) {
                 testCasestatus = "Pass";
-                if (!objDesc.equals("")) {
+                if (!objDesc.isEmpty()) {
                     reportEvent.reportEvent("Click on the Button : " + objDesc,
                             "Button should be clicked successfully",
-                            "" + objDesc + " Button clicked successfully",
-                            "Pass", workFlowTitle);
+                            objDesc + " Button clicked successfully",
+                            "Pass");
                 } else {
                     reportEvent.reportEvent("Click on the Button",
                             "Button should be clicked successfully",
                             "Button clicked successfully",
-                            "Pass", workFlowTitle);
+                            "Pass");
                 }
             } else {
                 testCasestatus = "Fail";
@@ -1663,20 +1652,21 @@ public class DriverScript {
                 explicitErrorMsg = "Unable to access the Web Button entered " + "  -  " + objReference
                         + " from " + screenObjClassName;
 
-                if (!objDesc.equals("")) {
+                if (!objDesc.isEmpty()) {
                     reportEvent.reportEvent("Click on the Button : " + objDesc,
                             "Button should be clicked successfully",
-                            "" + objDesc
-                                    + " Button not clicked." + "Reason: Button not displayed / enabled"
-                                    + " - Please open the Error Sheet to know more about the cause for Test Case failure",
-                            "Fail", workFlowTitle);
+                            objDesc + " Button not clicked."
+                                    + "Reason: Button not displayed / enabled"
+                                    + " - Please open the log to know more " +
+                                    "about the cause for Test Case failure",
+                            "Fail");
                 } else {
                     reportEvent.reportEvent("Click on the Button",
                             "Button should be clicked successfully",
                             "Button not clicked." + "Reason: Button not displayed / enabled"
-                                    + " - Please open the Error Sheet " +
+                                    + " - Please open the log " +
                                     "to know more about the cause for Test Case failure",
-                            "Fail", workFlowTitle);
+                            "Fail");
                 }
 
                 errorReporter.errorReporting();
@@ -1684,30 +1674,29 @@ public class DriverScript {
 
         } else if (objType.equals("SUBMIT")) {
             try {
-
-                assert webElmnt != null;
-                if (webElmnt.isEnabled()) {
-                    webElmnt.submit();
-                    objFound = true;
+                assert webElement != null;
+                if (webElement.isEnabled()) {
+                    webElement.submit();
+                    m_objFound = true;
                 }
             } catch (Exception e) {
                 errorDesc = e.getMessage();
                 e.printStackTrace();
-                objFound = false;
+                m_objFound = false;
             }
 
-            if (objFound) {
+            if (m_objFound) {
                 testCasestatus = "Pass";
-                if (!objDesc.equals("")) {
+                if (!objDesc.isEmpty()) {
                     reportEvent.reportEvent("Click on the Button : " + objDesc,
                             "Button should be clicked successfully",
-                            "" + objDesc + " Button clicked successfully",
-                            "Pass", workFlowTitle);
+                            objDesc + " Button clicked successfully",
+                            "Pass");
                 } else {
                     reportEvent.reportEvent("Click on the Button",
                             "Button should be clicked successfully",
                             "Button clicked successfully",
-                            "Pass", workFlowTitle);
+                            "Pass");
                 }
             } else {
                 testCasestatus = "Fail";
@@ -1716,21 +1705,21 @@ public class DriverScript {
                 explicitErrorMsg = "Unable to access the Submit Button  entered " + "  -  " + objReference
                         + " from " + screenObjClassName;
 
-                if (!objDesc.equals("")) {
+                if (!objDesc.isEmpty()) {
                     reportEvent.reportEvent("Click on the Button : " + objDesc,
                             "Button should be clicked successfully",
-                            "" + objDesc + " Button not clicked."
+                            objDesc + " Button not clicked."
                                     + "Reason: Button not displayed / enabled"
-                                    + " - Please open the Error Sheet " +
-                                    "to know more about the cause for Test Case failure",
-                            "Fail", workFlowTitle);
+                                    + " - Please open the log "
+                                    + "to know more about the cause for Test Case failure",
+                            "Fail");
                 } else {
                     reportEvent.reportEvent("Click on the Button",
                             "Button should be clicked successfully",
                             "Button not clicked." + "Reason: Button not displayed / enabled"
-                                    + " - Please open the Error Sheet " +
+                                    + " - Please open the log " +
                                     "to know more about the cause for Test Case failure",
-                            "Fail", workFlowTitle);
+                            "Fail");
                 }
 
                 errorReporter.errorReporting();
@@ -1741,23 +1730,22 @@ public class DriverScript {
             String updateDataSheetQuery;
 
             try {
-
-                assert webElmnt != null;
-                tempCapturedValue = webElmnt.getAttribute(fieldAttributeToCapture);
-                updateDataSheetQuery = "UPDATE " + dataSheetName + " " +
+                assert webElement != null;
+                tempCapturedValue = webElement.getAttribute(fieldAttributeToCapture);
+                updateDataSheetQuery = "UPDATE " + dataSheetName + ' ' +
                         "SET " + dataSheetOutputColumn + " = '" + tempCapturedValue +
-                        "' WHERE Test_Case_Name = '" + testCaseName + "'";
+                        "' WHERE Test_Case_Name = '" + testCaseName + '\'';
 
                 workFlowExcelUpdateDataStatement.executeUpdate(updateDataSheetQuery);
                 workFlowExcelUpdateDataConnection.commit();
 
-                objFound = true;
+                m_objFound = true;
             } catch (Exception e) {
-                objFound = false;
+                m_objFound = false;
                 errorDesc = e.getMessage();
                 e.printStackTrace();
             }
-            if (objFound) {
+            if (m_objFound) {
                 testCasestatus = "Pass";
             } else {
                 testCasestatus = "Fail";
@@ -1774,22 +1762,22 @@ public class DriverScript {
 
             try {
 
-                assert webElmnt != null;
-                tempCapturedValue1 = webElmnt.getText();
-                updateDataSheetQuery1 = "UPDATE " + dataSheetName + " " +
+                assert webElement != null;
+                tempCapturedValue1 = webElement.getText();
+                updateDataSheetQuery1 = "UPDATE " + dataSheetName + ' ' +
                         "SET " + dataSheetOutputColumn + " = '" + tempCapturedValue1 +
-                        "' WHERE Test_Case_Name = '" + testCaseName + "'";
+                        "' WHERE Test_Case_Name = '" + testCaseName + '\'';
 
                 workFlowExcelUpdateDataStatement.executeUpdate(updateDataSheetQuery1);
                 workFlowExcelUpdateDataConnection.commit();
 
-                objFound = true;
+                m_objFound = true;
             } catch (Exception e) {
-                objFound = false;
+                m_objFound = false;
                 errorDesc = e.getMessage();
                 e.printStackTrace();
             }
-            if (objFound) {
+            if (m_objFound) {
                 testCasestatus = "Pass";
             } else {
                 testCasestatus = "Fail";
@@ -1804,26 +1792,26 @@ public class DriverScript {
             try {
                 boolean txtFound = automationUtilities.findTextInsidePage(data);
                 if (txtFound) {
-                    objFound = true;
+                    m_objFound = true;
                     reportEvent.reportEvent("Verify if the text " + data
-                            + " is present in the web page - " + driver.getTitle(),
+                                    + " is present in the web page - " + driver.getTitle(),
                             "Text to be verified should be visible in the page",
                             "Text is present in the Web Page",
-                            "Pass", workFlowTitle);
+                            "Pass");
                 } else {
                     reportEvent.reportEvent("Verify if the text " + data
-                            + " is present in the web page - " + driver.getTitle(),
+                                    + " is present in the web page - " + driver.getTitle(),
                             "Text to be verified should be visible in the page",
                             "Text is not present in the Web Page",
-                            "Fail", workFlowTitle);
+                            "Fail");
                 }
             } catch (Exception e) {
-                objFound = false;
+                m_objFound = false;
                 errorDesc = e.getMessage();
                 e.printStackTrace();
             }
 
-            if (objFound) {
+            if (m_objFound) {
                 testCasestatus = "Pass";
             } else {
                 testCasestatus = "Fail";
@@ -1838,8 +1826,8 @@ public class DriverScript {
 
         } else if (objType.equals("VALIDATE_ALL_LINKS_ARE_NOT_BROKEN")) {
             PageHandler pageHandler = new PageHandler();
-            Set<String> allLinks = new LinkedHashSet<String>();
             List<WebElement> links = pageHandler.findAllLinks(driver);
+            Set<String> allLinks = new LinkedHashSet<String>(links.size());
             for (WebElement link : links) {
                 String url = link.getAttribute("href");
                 if (url.startsWith("http")) {
@@ -1853,7 +1841,7 @@ public class DriverScript {
                 reportEvent.reportEvent("Validate all the links in the Web Page",
                         "No links in the page should be broken",
                         "No links are present in the web page",
-                        "Fail", workFlowTitle);
+                        "Fail");
                 result = false;
             }
 
@@ -1863,12 +1851,12 @@ public class DriverScript {
                     reportEvent.reportEvent("Validate that the link is not broken",
                             "Link should not be broken",
                             "URL: " + link + " returned " + returnMessage,
-                            "Pass", workFlowTitle);
+                            "Pass");
                 } catch (Exception exp) {
                     reportEvent.reportEvent("Validate that the link is not broken",
                             "Link should not be broken",
-                            "At " + link + " Exception occured -&gt; " + exp.getMessage(),
-                            "Fail", workFlowTitle);
+                            "At " + link + " Exception occurred; " + exp.getMessage(),
+                            "Fail");
                     errorDesc = exp.getMessage();
                     exp.printStackTrace();
                     result = false;
@@ -1893,10 +1881,10 @@ public class DriverScript {
         }
     }
 
-    public String getData(String data) throws SQLException, ClassNotFoundException, IOException {
+    public String getData(String data) throws Exception {
         String dataIdentified = "";
 
-        if (!data.equals("")) {
+        if (!data.isEmpty()) {
             String firstChar = data.substring(0, 1);
 
             if ((firstChar.trim()).equalsIgnoreCase("#")) {
@@ -1907,31 +1895,29 @@ public class DriverScript {
 
                 return dataIdentified;
             } else {
-                if (data != null) {
-                    try {
-                        dataIdentified = String.valueOf(dataSelectQueryResultSet.getString(data));
-                        data = dataIdentified;
-                        return dataIdentified;
-                    } catch (Exception e) {
-                        log.info("No column in data sheet is identified using the name " + data
-                                + ". If you are planning to use a data sheet value " +
-                                "from a particular column corresponding to the test case, " +
-                                "then please enter the column name exactly as givrn in the Data sheet " +
-                                "(without a hash sign #). " +
-                                "If you are planning to enter a value to be used directly in to the code, " +
-                                "then please use a hash sign # before the value you intend to pass.");
-                        DriverScript.explicitErrorMsg = "No column in data sheet is identified using the name " + data
-                                + ". If you are planning to use a data sheet value " +
-                                "from a particular column corresponding to the test case, " +
-                                "then please enter the column name exactly as givrn in the Data sheet " +
-                                "(without a hash sign #). " +
-                                "If you are planning to enter a value to be used directly in to the code, " +
-                                "then please use a hash sign # before the value you intend to pass.";
-                        DriverScript.implicitErrorMsg = e.getMessage();
-                        DriverScript.testCasestatus = "Fail";
-                        e.printStackTrace();
-                        errorReporter.errorReporting();
-                    }
+                try {
+                    dataIdentified = String.valueOf(dataSelectQueryResultSet.getString(data));
+                    data = dataIdentified;
+                    return dataIdentified;
+                } catch (Exception e) {
+                    log.info("No column in data sheet is identified using the name " + data
+                            + ". If you are planning to use a data sheet value " +
+                            "from a particular column corresponding to the test case, " +
+                            "then please enter the column name exactly as givrn in the Data sheet " +
+                            "(without a hash sign #). " +
+                            "If you are planning to enter a value to be used directly in to the code, " +
+                            "then please use a hash sign # before the value you intend to pass.");
+                    DriverScript.explicitErrorMsg = "No column in data sheet is identified using the name " + data
+                            + ". If you are planning to use a data sheet value " +
+                            "from a particular column corresponding to the test case, " +
+                            "then please enter the column name exactly as givrn in the Data sheet " +
+                            "(without a hash sign #). " +
+                            "If you are planning to enter a value to be used directly in to the code, " +
+                            "then please use a hash sign # before the value you intend to pass.";
+                    DriverScript.implicitErrorMsg = e.getMessage();
+                    DriverScript.testCasestatus = "Fail";
+                    e.printStackTrace();
+                    errorReporter.errorReporting();
                 }
             }
         }
